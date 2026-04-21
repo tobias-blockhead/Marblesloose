@@ -1,0 +1,850 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>SecureShape — Tilt Auth</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600&family=Rajdhani:wght@300;400;500&display=swap');
+
+  :root {
+    --bg: #080c14;
+    --surface: #0d1520;
+    --trough: #111d2e;
+    --trough-hi: #1a2e47;
+    --bowl: #0a1828;
+    --accent: #3af0c8;
+    --accent2: #2b8fff;
+    --marble: #e8f4ff;
+    --marble-shine: #ffffff;
+    --gold: #c9a84c;
+    --danger: #ff4466;
+    --text: #a8c8e8;
+    --dim: #3a5068;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+
+  body {
+    background: var(--bg);
+    font-family: 'Rajdhani', sans-serif;
+    min-height: 100dvh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+    color: var(--text);
+  }
+
+  /* Starfield bg */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background-image:
+      radial-gradient(1px 1px at 20% 15%, rgba(58,240,200,0.4) 0%, transparent 100%),
+      radial-gradient(1px 1px at 80% 25%, rgba(43,143,255,0.3) 0%, transparent 100%),
+      radial-gradient(1px 1px at 45% 70%, rgba(58,240,200,0.2) 0%, transparent 100%),
+      radial-gradient(1px 1px at 70% 80%, rgba(43,143,255,0.3) 0%, transparent 100%),
+      radial-gradient(1px 1px at 10% 90%, rgba(201,168,76,0.3) 0%, transparent 100%),
+      radial-gradient(1px 1px at 90% 60%, rgba(58,240,200,0.2) 0%, transparent 100%);
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  .screen {
+    position: relative;
+    z-index: 1;
+    width: 100%;
+    max-width: 420px;
+    padding: 0 20px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 20px;
+  }
+
+  .header {
+    text-align: center;
+  }
+
+  .logo {
+    font-family: 'Cinzel', serif;
+    font-size: 11px;
+    letter-spacing: 6px;
+    color: var(--gold);
+    text-transform: uppercase;
+    margin-bottom: 6px;
+    opacity: 0.8;
+  }
+
+  .title {
+    font-family: 'Cinzel', serif;
+    font-size: 22px;
+    font-weight: 600;
+    color: #d8eeff;
+    letter-spacing: 2px;
+  }
+
+  .subtitle {
+    font-size: 13px;
+    color: var(--dim);
+    letter-spacing: 1px;
+    margin-top: 4px;
+  }
+
+  /* Instruction bar */
+  .instruction {
+    background: rgba(58,240,200,0.06);
+    border: 1px solid rgba(58,240,200,0.15);
+    border-radius: 8px;
+    padding: 10px 16px;
+    font-size: 13px;
+    color: var(--accent);
+    text-align: center;
+    letter-spacing: 0.5px;
+    width: 100%;
+    transition: all 0.4s;
+    min-height: 42px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .instruction.success {
+    border-color: rgba(58,240,200,0.5);
+    background: rgba(58,240,200,0.12);
+    color: #7fffdf;
+  }
+
+  .instruction.error {
+    border-color: rgba(255,68,102,0.4);
+    background: rgba(255,68,102,0.08);
+    color: var(--danger);
+  }
+
+  /* Canvas wrapper */
+  .canvas-wrap {
+    position: relative;
+    width: 100%;
+    aspect-ratio: 1;
+    max-width: 380px;
+  }
+
+  canvas {
+    width: 100%;
+    height: 100%;
+    border-radius: 16px;
+    display: block;
+  }
+
+  /* Move counter */
+  .moves {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+  }
+
+  .move-dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    border: 1.5px solid var(--dim);
+    background: transparent;
+    transition: all 0.3s;
+  }
+
+  .move-dot.done {
+    background: var(--accent);
+    border-color: var(--accent);
+    box-shadow: 0 0 8px var(--accent);
+  }
+
+  .move-label {
+    font-size: 12px;
+    color: var(--dim);
+    letter-spacing: 2px;
+    text-transform: uppercase;
+  }
+
+  /* Tilt permission button */
+  .btn {
+    background: linear-gradient(135deg, rgba(58,240,200,0.15), rgba(43,143,255,0.1));
+    border: 1px solid rgba(58,240,200,0.35);
+    color: var(--accent);
+    font-family: 'Rajdhani', sans-serif;
+    font-size: 14px;
+    font-weight: 500;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    padding: 12px 28px;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+
+  .btn:active {
+    transform: scale(0.97);
+    background: rgba(58,240,200,0.2);
+  }
+
+  /* Permission overlay */
+  #permission-overlay {
+    position: absolute;
+    inset: 0;
+    background: rgba(8,12,20,0.85);
+    border-radius: 16px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 14px;
+    z-index: 10;
+    backdrop-filter: blur(4px);
+  }
+
+  #permission-overlay p {
+    font-size: 13px;
+    color: var(--text);
+    text-align: center;
+    padding: 0 20px;
+    line-height: 1.6;
+  }
+
+  .btn-secondary {
+    background: transparent;
+    border: 1px solid rgba(43,143,255,0.35);
+    color: var(--accent2);
+    font-family: 'Rajdhani', sans-serif;
+    font-size: 13px;
+    font-weight: 500;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    padding: 10px 22px;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+
+  .btn-secondary:active {
+    background: rgba(43,143,255,0.15);
+  }
+
+  /* Success overlay */
+  #success-overlay {
+    position: absolute;
+    inset: 0;
+    background: rgba(8,12,20,0.9);
+    border-radius: 16px;
+    display: none;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+    z-index: 10;
+    backdrop-filter: blur(6px);
+  }
+
+  #success-overlay.show { display: flex; }
+
+  .success-icon {
+    font-size: 48px;
+    animation: pulse-glow 1.5s ease-in-out infinite;
+  }
+
+  .success-text {
+    font-family: 'Cinzel', serif;
+    font-size: 18px;
+    color: var(--accent);
+    letter-spacing: 3px;
+  }
+
+  .success-sub {
+    font-size: 12px;
+    color: var(--dim);
+    letter-spacing: 1px;
+  }
+
+  @keyframes pulse-glow {
+    0%, 100% { filter: drop-shadow(0 0 8px var(--accent)); }
+    50% { filter: drop-shadow(0 0 20px var(--accent)); }
+  }
+
+  /* Gyro fallback controls for desktop */
+  .desktop-controls {
+    display: none;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+    width: 100%;
+  }
+
+  .desktop-controls p {
+    font-size: 11px;
+    color: var(--dim);
+    letter-spacing: 1px;
+    text-transform: uppercase;
+  }
+
+  .dpad {
+    display: grid;
+    grid-template-columns: repeat(3, 44px);
+    grid-template-rows: repeat(3, 44px);
+    gap: 4px;
+  }
+
+  .dpad-btn {
+    background: rgba(58,240,200,0.07);
+    border: 1px solid rgba(58,240,200,0.2);
+    border-radius: 6px;
+    color: var(--accent);
+    font-size: 18px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.1s;
+    user-select: none;
+  }
+
+  .dpad-btn:active, .dpad-btn.pressed {
+    background: rgba(58,240,200,0.2);
+    border-color: var(--accent);
+    transform: scale(0.94);
+  }
+
+  .dpad-btn.empty { background: transparent; border-color: transparent; pointer-events: none; }
+</style>
+</head>
+<body>
+
+<div class="screen">
+  <div class="header">
+    <div class="logo">SecureShape</div>
+    <div class="title">Tilt Verification</div>
+    <div class="subtitle">Proof of Physical Presence</div>
+  </div>
+
+  <div class="instruction" id="instruction">
+    Tilt your device to guide the marble from ◈ to the exit ◎
+  </div>
+
+  <div class="canvas-wrap">
+    <canvas id="c" width="760" height="760"></canvas>
+
+    <div id="permission-overlay">
+      <p>This challenge uses your device's motion sensor to verify you're physically holding the phone.</p>
+      <button class="btn" id="grant-btn" style="font-size:16px; padding:16px 36px;">▶ Enable Motion</button>
+      <p style="font-size:11px; color: var(--dim);">Tap above, then tilt your device</p>
+      <div style="display:flex;align-items:center;gap:10px;margin:4px 0;">
+        <div style="height:1px;width:50px;background:rgba(58,240,200,0.2);"></div>
+        <span style="font-size:11px;color:var(--dim);">OR</span>
+        <div style="height:1px;width:50px;background:rgba(58,240,200,0.2);"></div>
+      </div>
+      <button class="btn-secondary" id="touch-btn">Use Touch Instead</button>
+    </div>
+
+    <div id="success-overlay">
+      <div class="success-icon">◈</div>
+      <div class="success-text">VERIFIED</div>
+      <div class="success-sub">Physical presence confirmed</div>
+    </div>
+  </div>
+
+  <div class="moves">
+    <span class="move-label">Moves</span>
+    <div class="move-dot" id="dot0"></div>
+    <div class="move-dot" id="dot1"></div>
+    <div class="move-dot" id="dot2"></div>
+  </div>
+
+  <!-- Desktop fallback d-pad -->
+  <div class="desktop-controls" id="desktop-controls">
+    <p>Desktop mode — use arrows to tilt</p>
+    <div class="dpad">
+      <div class="dpad-btn empty"></div>
+      <div class="dpad-btn" id="up-btn">▲</div>
+      <div class="dpad-btn empty"></div>
+      <div class="dpad-btn" id="left-btn">◀</div>
+      <div class="dpad-btn empty"></div>
+      <div class="dpad-btn" id="right-btn">▶</div>
+      <div class="dpad-btn empty"></div>
+      <div class="dpad-btn" id="down-btn">▼</div>
+      <div class="dpad-btn empty"></div>
+    </div>
+  </div>
+</div>
+
+<script>
+// ─── CONFIG ───────────────────────────────────────────────────────────────────
+const SHAPE = 'triangle'; // 'triangle' | 'square' | 'hexagon'
+const CANVAS_SIZE = 760;
+const S = CANVAS_SIZE;
+
+// ─── SHAPE DEFINITIONS ────────────────────────────────────────────────────────
+// Each shape defines: nodes (bowl positions), edges (trough connections), start, exit
+const SHAPES = {
+  triangle: {
+    nodes: [
+      { x: S*0.5,  y: S*0.15 },  // 0: top
+      { x: S*0.15, y: S*0.82 },  // 1: bottom-left
+      { x: S*0.85, y: S*0.82 },  // 2: bottom-right
+    ],
+    edges: [[0,1],[1,2],[2,0]],
+    start: 0,
+    exit: 2,
+    requiredPath: [0,1,2]  // must visit in order: top→BL→BR
+  },
+  square: {
+    nodes: [
+      { x: S*0.18, y: S*0.18 },
+      { x: S*0.82, y: S*0.18 },
+      { x: S*0.82, y: S*0.82 },
+      { x: S*0.18, y: S*0.82 },
+    ],
+    edges: [[0,1],[1,2],[2,3],[3,0]],
+    start: 0,
+    exit: 2,
+    requiredPath: [0,1,2]
+  }
+};
+
+const shape = SHAPES[SHAPE];
+
+// ─── STATE ────────────────────────────────────────────────────────────────────
+let marble = {
+  x: shape.nodes[shape.start].x,
+  y: shape.nodes[shape.start].y,
+  vx: 0,
+  vy: 0,
+  r: 18,
+};
+
+let tiltX = 0, tiltY = 0; // gyro tilt in m/s²
+let gyroActive = false;
+let moveCount = 0;
+let visitedNodes = [shape.start];
+let lastNode = shape.start;
+let done = false;
+let pathProgress = 0; // 0..1 along current edge
+
+// Desktop key state
+const keys = {};
+
+// ─── CANVAS ───────────────────────────────────────────────────────────────────
+const canvas = document.getElementById('c');
+const ctx = canvas.getContext('2d');
+
+// ─── GEOMETRY HELPERS ─────────────────────────────────────────────────────────
+function dist(a, b) {
+  return Math.hypot(a.x - b.x, a.y - b.y);
+}
+
+function closestPointOnSegment(px, py, ax, ay, bx, by) {
+  const dx = bx - ax, dy = by - ay;
+  const len2 = dx*dx + dy*dy;
+  if (len2 === 0) return { x: ax, y: ay, t: 0 };
+  let t = ((px-ax)*dx + (py-ay)*dy) / len2;
+  t = Math.max(0, Math.min(1, t));
+  return { x: ax + t*dx, y: ay + t*dy, t };
+}
+
+// ─── DRAW HELPERS ─────────────────────────────────────────────────────────────
+function drawTrough(ax, ay, bx, by, highlight) {
+  const w = 28;
+  const innerW = 14;
+
+  // Outer glow
+  if (highlight) {
+    ctx.save();
+    ctx.strokeStyle = 'rgba(58,240,200,0.25)';
+    ctx.lineWidth = w + 12;
+    ctx.lineCap = 'round';
+    ctx.shadowColor = 'rgba(58,240,200,0.4)';
+    ctx.shadowBlur = 20;
+    ctx.beginPath(); ctx.moveTo(ax,ay); ctx.lineTo(bx,by); ctx.stroke();
+    ctx.restore();
+  }
+
+  // Trough body
+  ctx.save();
+  ctx.strokeStyle = '#111d2e';
+  ctx.lineWidth = w;
+  ctx.lineCap = 'round';
+  ctx.beginPath(); ctx.moveTo(ax,ay); ctx.lineTo(bx,by); ctx.stroke();
+
+  // Inner groove
+  const grad = ctx.createLinearGradient(ax, ay, bx, by);
+  grad.addColorStop(0, '#0d1a2a');
+  grad.addColorStop(0.5, '#162436');
+  grad.addColorStop(1, '#0d1a2a');
+  ctx.strokeStyle = grad;
+  ctx.lineWidth = innerW;
+  ctx.beginPath(); ctx.moveTo(ax,ay); ctx.lineTo(bx,by); ctx.stroke();
+
+  // Edge highlight
+  ctx.strokeStyle = 'rgba(43,143,255,0.12)';
+  ctx.lineWidth = 2;
+  ctx.beginPath(); ctx.moveTo(ax,ay); ctx.lineTo(bx,by); ctx.stroke();
+  ctx.restore();
+}
+
+function drawBowl(x, y, isStart, isExit, isActive) {
+  const r = 26;
+
+  // Glow
+  ctx.save();
+  const glowColor = isExit ? 'rgba(201,168,76,0.5)' : isStart ? 'rgba(58,240,200,0.4)' : 'rgba(43,143,255,0.2)';
+  ctx.shadowColor = glowColor;
+  ctx.shadowBlur = isActive ? 30 : 12;
+
+  // Bowl depression
+  const radGrad = ctx.createRadialGradient(x, y-4, 2, x, y, r);
+  radGrad.addColorStop(0, '#08101c');
+  radGrad.addColorStop(0.6, '#0d1828');
+  radGrad.addColorStop(1, '#1a2e47');
+  ctx.fillStyle = radGrad;
+  ctx.beginPath();
+  ctx.arc(x, y, r, 0, Math.PI*2);
+  ctx.fill();
+
+  // Rim
+  ctx.strokeStyle = isExit ? 'rgba(201,168,76,0.7)' : isStart ? 'rgba(58,240,200,0.6)' : 'rgba(43,143,255,0.3)';
+  ctx.lineWidth = 2;
+  ctx.stroke();
+
+  // Label
+  ctx.fillStyle = isExit ? 'rgba(201,168,76,0.8)' : 'rgba(58,240,200,0.6)';
+  ctx.font = `bold ${14}px Rajdhani`;
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillText(isExit ? '◎' : isStart ? '◈' : '·', x, y);
+  ctx.restore();
+}
+
+function drawMarble(x, y) {
+  const r = marble.r;
+
+  ctx.save();
+  // Shadow
+  ctx.shadowColor = 'rgba(58,240,200,0.6)';
+  ctx.shadowBlur = 20;
+
+  // Main sphere gradient
+  const grad = ctx.createRadialGradient(x - r*0.3, y - r*0.35, r*0.05, x, y, r);
+  grad.addColorStop(0, '#ffffff');
+  grad.addColorStop(0.3, '#c8e8ff');
+  grad.addColorStop(0.7, '#5ab0ff');
+  grad.addColorStop(1, '#1a4080');
+  ctx.fillStyle = grad;
+  ctx.beginPath();
+  ctx.arc(x, y, r, 0, Math.PI*2);
+  ctx.fill();
+
+  // Specular
+  const spec = ctx.createRadialGradient(x - r*0.3, y - r*0.35, 0, x - r*0.3, y - r*0.35, r*0.45);
+  spec.addColorStop(0, 'rgba(255,255,255,0.9)');
+  spec.addColorStop(1, 'rgba(255,255,255,0)');
+  ctx.fillStyle = spec;
+  ctx.beginPath();
+  ctx.arc(x, y, r, 0, Math.PI*2);
+  ctx.fill();
+
+  ctx.restore();
+}
+
+// ─── PHYSICS ─────────────────────────────────────────────────────────────────
+const GRAVITY = 0.6;
+const FRICTION = 0.88;
+const CHANNEL_STRENGTH = 0.35;
+const SNAP_RADIUS = 32;
+const NODE_CAPTURE = 30;
+
+function physics(dt) {
+  if (done) return;
+
+  // Apply tilt as gravity direction
+  let gx = tiltX * GRAVITY;
+  let gy = tiltY * GRAVITY;
+
+  // Desktop fallback
+  if (!gyroActive) {
+    if (keys['ArrowLeft']) gx = -GRAVITY * 8;
+    if (keys['ArrowRight']) gx = GRAVITY * 8;
+    if (keys['ArrowUp']) gy = -GRAVITY * 8;
+    if (keys['ArrowDown']) gy = GRAVITY * 8;
+  }
+
+  marble.vx += gx;
+  marble.vy += gy;
+
+  // Channel: find nearest edge and pull marble onto it
+  let nearestDist = Infinity;
+  let nearestEdge = null;
+  let nearestPoint = null;
+
+  for (const [ai, bi] of shape.edges) {
+    const a = shape.nodes[ai], b = shape.nodes[bi];
+    const cp = closestPointOnSegment(marble.x, marble.y, a.x, a.y, b.x, b.y);
+    const d = Math.hypot(marble.x - cp.x, marble.y - cp.y);
+    if (d < nearestDist) {
+      nearestDist = d;
+      nearestEdge = [ai, bi];
+      nearestPoint = cp;
+    }
+  }
+
+  if (nearestPoint && nearestDist < 60) {
+    // Channel marble toward trough center
+    const pullX = nearestPoint.x - marble.x;
+    const pullY = nearestPoint.y - marble.y;
+    marble.vx += pullX * CHANNEL_STRENGTH;
+    marble.vy += pullY * CHANNEL_STRENGTH;
+  }
+
+  marble.vx *= FRICTION;
+  marble.vy *= FRICTION;
+  marble.x += marble.vx;
+  marble.y += marble.vy;
+
+  // Node snapping & visit detection
+  for (let i = 0; i < shape.nodes.length; i++) {
+    const n = shape.nodes[i];
+    const d = dist(marble, n);
+    if (d < NODE_CAPTURE && i !== lastNode) {
+      // Landed in a new node!
+      marble.x = n.x;
+      marble.y = n.y;
+      marble.vx *= 0.2;
+      marble.vy *= 0.2;
+
+      if (!visitedNodes.includes(i)) {
+        visitedNodes.push(i);
+        lastNode = i;
+        moveCount++;
+        updateMoveDisplay();
+
+        if (i === shape.exit && moveCount >= shape.requiredPath.length - 1) {
+          triggerSuccess();
+        } else {
+          showInstruction(`Move ${moveCount} complete — keep going!`, '');
+        }
+      } else {
+        lastNode = i;
+      }
+    }
+  }
+
+  // Boundary bounce
+  marble.x = Math.max(marble.r, Math.min(S - marble.r, marble.x));
+  marble.y = Math.max(marble.r, Math.min(S - marble.r, marble.y));
+}
+
+// ─── RENDER ───────────────────────────────────────────────────────────────────
+function render() {
+  ctx.clearRect(0, 0, S, S);
+
+  // Background
+  const bgGrad = ctx.createRadialGradient(S/2, S/2, 0, S/2, S/2, S*0.7);
+  bgGrad.addColorStop(0, '#0d1828');
+  bgGrad.addColorStop(1, '#080c14');
+  ctx.fillStyle = bgGrad;
+  ctx.fillRect(0, 0, S, S);
+
+  // Draw troughs
+  for (const [ai, bi] of shape.edges) {
+    const a = shape.nodes[ai], b = shape.nodes[bi];
+    const onPath = visitedNodes.includes(ai) && visitedNodes.includes(bi);
+    drawTrough(a.x, a.y, b.x, b.y, onPath);
+  }
+
+  // Draw nodes
+  for (let i = 0; i < shape.nodes.length; i++) {
+    const n = shape.nodes[i];
+    const isStart = i === shape.start;
+    const isExit = i === shape.exit;
+    const isActive = visitedNodes.includes(i);
+    drawBowl(n.x, n.y, isStart, isExit, isActive);
+  }
+
+  // Marble
+  drawMarble(marble.x, marble.y);
+}
+
+// ─── LOOP ─────────────────────────────────────────────────────────────────────
+let last = 0;
+function loop(ts) {
+  const dt = Math.min((ts - last) / 16.67, 3);
+  last = ts;
+  physics(dt);
+  render();
+  requestAnimationFrame(loop);
+}
+
+// ─── UI HELPERS ───────────────────────────────────────────────────────────────
+function showInstruction(msg, type) {
+  const el = document.getElementById('instruction');
+  el.textContent = msg;
+  el.className = 'instruction' + (type ? ' ' + type : '');
+}
+
+function updateMoveDisplay() {
+  for (let i = 0; i < 3; i++) {
+    document.getElementById(`dot${i}`).classList.toggle('done', i < moveCount);
+  }
+}
+
+function triggerSuccess() {
+  done = true;
+  document.getElementById('success-overlay').classList.add('show');
+  showInstruction('Identity verified — physical presence confirmed', 'success');
+
+  // Vibrate if available
+  if (navigator.vibrate) navigator.vibrate([100, 50, 200]);
+}
+
+// ─── GYROSCOPE ────────────────────────────────────────────────────────────────
+function startGyro() {
+  // iOS 13+ requires explicit permission for both motion and orientation
+  if (typeof DeviceOrientationEvent !== 'undefined' && typeof DeviceOrientationEvent.requestPermission === 'function') {
+    DeviceOrientationEvent.requestPermission().then(state => {
+      if (state === 'granted') activateGyro();
+      else showDesktopFallback();
+    }).catch(() => showDesktopFallback());
+  } else if (typeof DeviceMotionEvent !== 'undefined' && typeof DeviceMotionEvent.requestPermission === 'function') {
+    DeviceMotionEvent.requestPermission().then(state => {
+      if (state === 'granted') activateGyro();
+      else showDesktopFallback();
+    }).catch(() => showDesktopFallback());
+  } else if (window.DeviceOrientationEvent || window.DeviceMotionEvent) {
+    // Android / non-iOS — no permission needed, just activate
+    activateGyro();
+  } else {
+    showDesktopFallback();
+  }
+}
+
+function activateGyro() {
+  document.getElementById('permission-overlay').style.display = 'none';
+  showInstruction('Tilt to guide the marble ◈ → ◎', '');
+
+  let sensorFired = false;
+
+  // Try DeviceOrientation first (works on more Android devices)
+  function onOrientation(e) {
+    if (e.gamma === null && e.beta === null) return;
+    sensorFired = true;
+    gyroActive = true;
+    // gamma = left/right tilt (-90 to 90), beta = front/back tilt (-180 to 180)
+    tiltX = (e.gamma || 0) * 0.15;
+    tiltY = (e.beta || 0) * 0.1;
+  }
+
+  // Also try DeviceMotion as backup
+  function onMotion(e) {
+    const acc = e.accelerationIncludingGravity;
+    if (!acc || (acc.x === null && acc.y === null)) return;
+    sensorFired = true;
+    gyroActive = true;
+    tiltX = (acc.x || 0) * 1.4;
+    tiltY = -(acc.y || 0) * 1.4;
+  }
+
+  window.addEventListener('deviceorientation', onOrientation);
+  window.addEventListener('devicemotion', onMotion);
+
+  // If no sensor data arrives within 1.5 seconds, fall back to touch/dpad
+  setTimeout(() => {
+    if (!sensorFired) {
+      window.removeEventListener('deviceorientation', onOrientation);
+      window.removeEventListener('devicemotion', onMotion);
+      gyroActive = false;
+      // Show both touch and dpad options
+      document.getElementById('desktop-controls').style.display = 'flex';
+      showInstruction('Motion sensor unavailable — use arrows or touch drag', '');
+    }
+  }, 1500);
+}
+
+function showDesktopFallback() {
+  document.getElementById('permission-overlay').style.display = 'none';
+  document.getElementById('desktop-controls').style.display = 'flex';
+  gyroActive = false;
+  showInstruction('Use the arrows below to tilt', '');
+}
+
+// ─── KEYBOARD ─────────────────────────────────────────────────────────────────
+document.addEventListener('keydown', e => { keys[e.key] = true; });
+document.addEventListener('keyup', e => { keys[e.key] = false; });
+
+// D-pad buttons
+['up','down','left','right'].forEach(dir => {
+  const btn = document.getElementById(`${dir}-btn`);
+  const key = { up:'ArrowUp', down:'ArrowDown', left:'ArrowLeft', right:'ArrowRight' }[dir];
+  btn.addEventListener('pointerdown', () => { keys[key] = true; btn.classList.add('pressed'); });
+  btn.addEventListener('pointerup', () => { keys[key] = false; btn.classList.remove('pressed'); });
+  btn.addEventListener('pointerleave', () => { keys[key] = false; btn.classList.remove('pressed'); });
+});
+
+// ─── TOUCH DRAG MODE ──────────────────────────────────────────────────────────
+let touchMode = false;
+let lastTouch = null;
+
+function activateTouchMode() {
+  touchMode = true;
+  gyroActive = true; // suppress desktop controls
+  document.getElementById('permission-overlay').style.display = 'none';
+  showInstruction('Drag your finger to push the marble', '');
+
+  canvas.addEventListener('touchstart', e => {
+    e.preventDefault();
+    const t = e.touches[0];
+    const rect = canvas.getBoundingClientRect();
+    const scaleX = S / rect.width;
+    lastTouch = {
+      x: (t.clientX - rect.left) * scaleX,
+      y: (t.clientY - rect.top) * scaleX
+    };
+  }, { passive: false });
+
+  canvas.addEventListener('touchmove', e => {
+    e.preventDefault();
+    const t = e.touches[0];
+    const rect = canvas.getBoundingClientRect();
+    const scaleX = S / rect.width;
+    const cur = {
+      x: (t.clientX - rect.left) * scaleX,
+      y: (t.clientY - rect.top) * scaleX
+    };
+    if (lastTouch) {
+      // Apply drag delta as force
+      const dx = cur.x - lastTouch.x;
+      const dy = cur.y - lastTouch.y;
+      marble.vx += dx * 0.4;
+      marble.vy += dy * 0.4;
+    }
+    lastTouch = cur;
+  }, { passive: false });
+
+  canvas.addEventListener('touchend', () => { lastTouch = null; });
+}
+
+// Touch btn
+document.getElementById('touch-btn').addEventListener('click', activateTouchMode);
+
+// Grant button
+document.getElementById('grant-btn').addEventListener('click', startGyro);
+
+window.addEventListener('load', () => {
+  const isMobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
+  if (!isMobile) {
+    // Desktop: hide overlay, show d-pad arrow controls
+    showDesktopFallback();
+  }
+  // Mobile: always keep overlay so user must tap — required for Android motion permission
+  requestAnimationFrame(loop);
+});
+</script>
+</body>
+</html>
