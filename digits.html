@@ -65,19 +65,19 @@
     <div class="chunk">
       <div class="letter">A</div>
       <div class="bar"></div>
-      <div class="slabel">/a/</div>
+      <div class="slabel">/aah/</div>
     </div>
     <div class="chunk">
       <div class="letter">T</div>
       <div class="bar"></div>
-      <div class="slabel">/t/</div>
+      <div class="slabel">/tuh/</div>
     </div>
   </div>
   <div class="status" id="st">Tap or swipe right →</div>
   <div class="bubble" id="bub"></div>
 </div>
 <script>
-const chunks=[{sound:'k',label:'/kuh/'},{sound:'a',label:'/a/'},{sound:'t',label:'/t/'}];
+const chunks=[{sound:'kuh',label:'/kuh/'},{sound:'aah',label:'/aah/'},{sound:'tuh',label:'/tuh/'}];
 let tapped=false,swiped=false,tx0=0,ty0=0,t0=0,isSwiping=false,lastIdx=-1,swipeDir=null,fbTimer=null;
 
 function speak(text,rate,pitch){
