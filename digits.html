@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>Digits</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Fredoka+One&family=Nunito:wght@700;800&display=swap');
+  *{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
+  body{background:#FFF9F0;font-family:'Nunito',sans-serif;min-height:100dvh;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:24px;}
+  .card{background:white;border-radius:32px;padding:40px 28px;width:100%;max-width:400px;box-shadow:0 8px 40px rgba(0,0,0,0.08);display:flex;flex-direction:column;align-items:center;gap:24px;}
+  .logo{font-family:'Fredoka One',cursive;font-size:36px;background:linear-gradient(135deg,#FF6B6B,#9B89F5);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;}
+  .mascot{font-size:64px;animation:float 3s ease-in-out infinite;}
+  @keyframes float{0%,100%{transform:translateY(0)}50%{transform:translateY(-8px)}}
+  .stars{display:flex;gap:12px;}
+  .star{font-size:28px;opacity:0.15;transition:all 0.3s cubic-bezier(0.34,1.56,0.64,1);}
+  .star.earned{opacity:1;filter:drop-shadow(0 0 8px rgba(255,217,61,0.9));}
+  .hints{display:flex;width:100%;background:#f8f8f8;border-radius:14px;overflow:hidden;}
+  .hint{flex:1;padding:10px 8px;text-align:center;font-size:12px;font-weight:800;color:#888;}
+  .hint:first-child{border-right:1px solid #eee;}
+  .word-area{display:flex;align-items:flex-end;justify-content:center;gap:8px;padding:20px 8px 16px;border-radius:20px;width:100%;touch-action:none;user-select:none;position:relative;min-height:130px;transition:background 0.2s;}
+  .word-area.tapping{background:rgba(255,107,107,0.07);}
+  .word-area.swiping{background:rgba(78,205,196,0.07);}
+  .chunk{display:flex;flex-direction:column;align-items:center;gap:5px;padding:8px 6px;border-radius:14px;transition:all 0.15s;}
+  .letter{font-family:'Fredoka One',cursive;font-size:80px;line-height:1;color:#2d2d2d;transition:all 0.15s;}
+  .bar{height:6px;width:80%;border-radius:3px;background:#e8e8e8;transition:all 0.2s;}
+  .slabel{font-size:12px;font-weight:900;letter-spacing:1px;opacity:0;transition:opacity 0.15s;min-height:16px;}
+  .chunk:nth-child(1){--cc:#FF6B6B;}
+  .chunk:nth-child(2){--cc:#4ECDC4;}
+  .chunk:nth-child(3){--cc:#9B89F5;}
+  .chunk.active .letter{color:var(--cc);transform:scale(1.25) translateY(-8px);}
+  .chunk.active .bar{background:var(--cc);width:100%;height:7px;}
+  .chunk.active .slabel{color:var(--cc);opacity:1;}
+  .chunk.visited .letter{color:#ccc;}
+  .chunk.visited .bar{background:var(--cc);opacity:0.35;}
+  .status{font-size:12px;font-weight:800;color:#ccc;letter-spacing:2px;text-transform:uppercase;min-height:18px;}
+  .status.tap{color:#FF6B6B;}.status.swipe{color:#4ECDC4;}.status.win{color:#9B89F5;}
+  .bubble{font-family:'Fredoka One',cursive;font-size:24px;padding:10px 28px;border-radius:50px;color:white;background:linear-gradient(135deg,#FF6B6B,#FFB347);opacity:0;transform:scale(0.8) translateY(6px);transition:all 0.25s cubic-bezier(0.34,1.56,0.64,1);min-height:48px;display:flex;align-items:center;}
+  .bubble.show{opacity:1;transform:scale(1) translateY(0);}
+  .bubble.phonics{background:linear-gradient(135deg,#4ECDC4,#9B89F5);}
+  .bubble.win{background:linear-gradient(135deg,#FFD93D,#FF6B6B);}
+  .ripple{position:absolute;border-radius:50%;background:rgba(255,107,107,0.15);transform:scale(0);animation:rip 0.5s ease-out forwards;pointer-events:none;}
+  @keyframes rip{to{transform:scale(5);opacity:0;}}
+</style>
+</head>
+<body>
+<div class="card">
+  <div class="logo">Digits</div>
+  <div class="mascot">🐱</div>
+  <div class="stars">
+    <div class="star" id="s0">⭐</div>
+    <div class="star" id="s1">⭐</div>
+    <div class="star" id="s2">⭐</div>
+  </div>
+  <div class="hints">
+    <div class="hint">👆 TAP = whole word</div>
+    <div class="hint">👉 SWIPE right = sounds</div>
+  </div>
+  <div class="word-area" id="wa">
+    <div class="chunk">
+      <div class="letter">C</div>
+      <div class="bar"></div>
+      <div class="slabel">/kuh/</div>
+    </div>
+    <div class="chunk">
+      <div class="letter">A</div>
+      <div class="bar"></div>
+      <div class="slabel">/a/</div>
+    </div>
+    <div class="chunk">
+      <div class="letter">T</div>
+      <div class="bar"></div>
+      <div class="slabel">/t/</div>
+    </div>
+  </div>
+  <div class="status" id="st">Tap or swipe right →</div>
+  <div class="bubble" id="bub"></div>
+</div>
+<script>
+const chunks=[{sound:'k',label:'/kuh/'},{sound:'a',label:'/a/'},{sound:'t',label:'/t/'}];
+let tapped=false,swiped=false,tx0=0,ty0=0,t0=0,isSwiping=false,lastIdx=-1,swipeDir=null,fbTimer=null;
+
+function speak(text,rate,pitch){
+  if(!window.speechSynthesis)return;
+  window.speechSynthesis.cancel();
+  const u=new SpeechSynthesisUtterance(text);
+  u.rate=rate||0.7;u.pitch=pitch||1.2;u.volume=1;
+  const voices=speechSynthesis.getVoices();
+  const v=voices.find(v=>v.lang==='en-US')||voices.find(v=>v.lang.startsWith('en'))||voices[0];
+  if(v)u.voice=v;
+  speechSynthesis.speak(u);
+}
+
+function getChunks(){return[...document.querySelectorAll('.chunk')];}
+function resetChunks(){getChunks().forEach(c=>c.classList.remove('active','visited'));}
+function setStatus(t,c){const el=document.getElementById('st');el.textContent=t;el.className='status '+(c||'');}
+function showBubble(t,c){const el=document.getElementById('bub');el.textContent=t;el.className='bubble show '+(c||'');clearTimeout(fbTimer);fbTimer=setTimeout(()=>el.classList.remove('show'),2000);}
+function star(i){const el=document.getElementById('s'+i);if(!el.classList.contains('earned'))el.classList.add('earned');}
+
+function getChunkAtX(x){
+  const ch=getChunks();
+  for(let i=0;i<ch.length;i++){const r=ch[i].getBoundingClientRect();if(x>=r.left-12&&x<=r.right+12)return i;}
+  const rects=ch.map(c=>c.getBoundingClientRect());
+  if(x<rects[0].left)return 0;if(x>rects[rects.length-1].right)return ch.length-1;return -1;
+}
+
+function doTap(cx,cy){
+  const wa=document.getElementById('wa');
+  wa.classList.add('tapping');setTimeout(()=>wa.classList.remove('tapping'),280);
+  const rect=wa.getBoundingClientRect();
+  const r=document.createElement('div');r.className='ripple';
+  r.style.cssText='width:70px;height:70px;left:'+(cx-rect.left-35)+'px;top:'+(cy-rect.top-35)+'px';
+  wa.appendChild(r);setTimeout(()=>r.remove(),500);
+  getChunks().forEach((c,i)=>{setTimeout(()=>c.classList.add('active'),i*80);setTimeout(()=>c.classList.remove('active'),i*80+350);});
+  speak(tapped?'cat':'the word is cat',0.8,1.1);
+  tapped=true;setStatus('Tap — whole word!','tap');showBubble('🐱 cat');star(0);
+}
+
+const wa=document.getElementById('wa');
+wa.addEventListener('touchstart',e=>{
+  const t=e.touches[0];tx0=t.clientX;ty0=t.clientY;t0=Date.now();
+  isSwiping=false;swipeDir=null;lastIdx=-1;
+  window.speechSynthesis&&speechSynthesis.cancel();
+  resetChunks();
+},{passive:true});
+
+wa.addEventListener('touchmove',e=>{
+  e.preventDefault();
+  const t=e.touches[0];
+  const dx=t.clientX-tx0,dy=t.clientY-ty0;
+  if(!swipeDir&&(Math.abs(dx)>10||Math.abs(dy)>10))swipeDir=Math.abs(dx)>Math.abs(dy)?'h':'v';
+  if(swipeDir!=='h'||dx<0)return;
+  isSwiping=true;setStatus('Swiping — sound it out!','swipe');
+  wa.classList.add('swiping');
+  const idx=getChunkAtX(t.clientX);
+  if(idx===-1||idx===lastIdx)return;
+  lastIdx=idx;
+  const ch=getChunks();
+  for(let i=0;i<idx;i++){ch[i].classList.remove('active');ch[i].classList.add('visited');}
+  ch[idx].classList.remove('visited');ch[idx].classList.add('active');
+  speak(chunks[idx].sound,0.5,1.3);
+  showBubble(chunks[idx].label,'phonics');
+},{passive:false});
+
+wa.addEventListener('touchend',e=>{
+  wa.classList.remove('swiping');
+  const t=e.changedTouches[0];
+  const dx=t.clientX-tx0,elapsed=Date.now()-t0;
+  if(isSwiping&&swipeDir==='h'&&dx>0){
+    const ch=getChunks();
+    const v=ch.filter(c=>c.classList.contains('visited')||c.classList.contains('active')).length;
+    if(v===ch.length){setTimeout(()=>{speak('cat',0.8,1.1);showBubble('🎉 cat!','win');setStatus('Amazing! 🎉','win');const m=document.querySelector('.mascot');m.style.transform='scale(1.4)';setTimeout(()=>m.style.transform='',400);if(!swiped){swiped=true;star(1);if(tapped)star(2);}},200);}
+    setTimeout(resetChunks,800);
+  }else if(!isSwiping&&elapsed<300&&Math.abs(dx)<10){doTap(t.clientX,t.clientY);}
+  isSwiping=false;swipeDir=null;
+});
+
+if(window.speechSynthesis)speechSynthesis.getVoices();
+</script>
+</body>
+</html>
